@@ -2,15 +2,17 @@ import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 # ===================
-#   TORINA SETTINGS
+#   Comp. SETTINGS
 # ===================
 
 torina_parent_dir = '/home/shachar/Documents/'
+results_dir = './Results'
 
-# ================
-#   QM9 SETTINGS
-# ================
+# =====================
+#   Database SETTINGS
+# =====================
 
+# QM9 
 qm9_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/QM9.csv'
 qm9_cm_file = '/home/shachar/Documents/CustodiPaper/DataFiles/Qm9Cm.csv'
 
@@ -36,6 +38,18 @@ qm9_labels = [  # "SMILES",
 
 qm9_train_sizes = [0.001, 0.01, 0.1, 0.9] # [0.1%, 1%, 10%, 90%]
 
+# DELANEY
+delaney_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/DELANEY.csv'
+delaney_train_sizes = [] #$ TODO: set values !
+
+# Lipophylicity
+lipophilicity_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/Lipophilicity.csv'
+lipophilicity_train_sizes = [] #$ TODO: set values !
+
+# SAMPL
+sampl_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/SAMPL.csv'
+sampl_train_sizes = [] #$ TODO: set values !
+
 # ====================
 #   Model parameters
 # ====================
@@ -43,20 +57,25 @@ qm9_train_sizes = [0.001, 0.01, 0.1, 0.9] # [0.1%, 1%, 10%, 90%]
 import sys; sys.path.append(torina_parent_dir)
 from commons import CustomNN
 from Torina.Model.Custodi import Custodi
+from Torina.Model.KernelRidge import KernalRidge
 
 models_dict = {"CUSTODI": Custodi,
-                "NN": CustomNN}
+                "NN": CustomNN,
+                "KRR": KernalRidge}
 
 # init parameters for the different models
 model_params = {
-                "CUSTODI": #{'degree':   [1, 2, 3, 4],
-                           #'alpha':    [0.01, 1, 100, 1e4],
-                           {'degree':   [1],
-                            'alpha':    [0.01],
+                "CUSTODI": {'degree':   [1, 2, 3, 4],
+                            'alpha':    [0.01, 1, 100, 1e4],
                             'max_iter': [10000]},
                 "NN":      {"init": {'lr': [0.01, 0.1], 
                                     'dropout_rate': [0, 0.1]},
                             "train": {'epochs': 10,
-                                        'batch_size': 128}}
-
+                                        'batch_size': 128}},
+                "KRR":     {"init": {'alpha': [0.01, 0.1], 
+                                        'kernel': ['rbf']},
+                            "train": {}},
+                "GC":      {"graph_conv_layers": [[64, 64], [32, 32]], 
+                            "dense_layer_size": [128, 64]},
+                "DTNN":    {}
                 }

@@ -11,9 +11,9 @@
 # 
 # =======================================================
 
-from dask import delayed, compute
 from dask.distributed import Client
 import numpy as np
+import os
 
 import settings
 import sys; sys.path.append(settings.torina_parent_dir)
@@ -22,14 +22,15 @@ from Torina.Model.utils import grid_estimation
 from Torina.Data.Tokenizer.Custodi import Custodi as custodi_rep
 from Torina.Model.Custodi import Custodi as custodi_model
 from Torina.Model.commons import kw_cartesian_prod
-from commons import qm9_data, CustomNN, add_input_shape_to_params
+from commons import *
 
 
-def data_prep(target_label, train_size, custodi_params={}, for_custodi=False, sample='all'):
+def data_prep(target_label: str, train_size: float, dataset: str, custodi_params={}, for_custodi=False, sample='all'):
     """Data preperation method for run.
     ARGS:
         - target_label (str): name of target property in qm9 dataset
         - train_size (float): relative size of train set
+        - dataset (str): dataset name to use in the computation (qm9, lipophilicity, delaney, sampl)
         - custodi_params (dict): dict of parameters for custodi tokenizer (no need of for_custodi=True)
         - for_custodi (bool): weather the data is meant for custodi model
     RETURN:
@@ -37,20 +38,19 @@ def data_prep(target_label, train_size, custodi_params={}, for_custodi=False, sa
     if for_custodi:
         # prepare data for CUSTODI model
         # CUSTODI model doesn't require padding and tokenization!
-        qm9 = qm9_data(target_label, normalization_method='z_score', pad_smiles=False)
+        data = loaders[dataset.lower()](target_label, normalization_method='z_score', pad_smiles=False)
     else:
         # prepare data for non-CUSTODI model with CUSOTODI rep
         # data with padded smiles and normalized labels (z-score)
-        qm9 = qm9_data(target_label)
-        qm9.vectorized_labels = qm9.vectorized_labels.tolist()
+        data = loaders[dataset.lower()](target_label)
+        data.vectorized_labels = data.vectorized_labels.tolist()
     # taking a sample of the data (if requested)
     if not sample == 'all':
-        qm9 = qm9.sample(sample)
-    print("Standard Deviation:", np.std(qm9.vectorized_labels))
-    if train_size < 0.8:
-        groups = qm9.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=0)
+        data = data.sample(sample)
+    if train_size <= 0.8:
+        groups = data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=0)
     else:
-        groups = qm9.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=0)
+        groups = data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=0)
     # training and tokenizing data using CUSTODI
     if not for_custodi:
         tok = custodi_rep(**custodi_params)
@@ -60,28 +60,42 @@ def data_prep(target_label, train_size, custodi_params={}, for_custodi=False, sa
             groups[i].vectorized_inputs = groups[i].tokenize(groups[i].vectorized_inputs)
     return groups
 
-@delayed
-def run_custodi_fit(target_label, train_size, results_file, sample='all'):
-    train, val, test = data_prep(target_label, train_size, for_custodi=True, sample=sample)
+def run_custodi_fit(target_label, train_size, dataset, sample='all'):
+    counter = 0
+    fname = lambda x: "{}_{}_{}_CUTODIMODEL_{}.csv".format(x, target_label, train_size, dataset)
+    while True:
+        if os.path.isfile(os.path.join(settings.results_dir, fname(counter))):
+            counter += 1
+        else:
+            results_file = os.path.join(settings.results_dir, fname(counter))
+            break
+    train, val, test = data_prep(target_label, train_size, dataset, for_custodi=True, sample=sample)
     grid_estimation(custodi_model, 
                     train,
                     [("val", val), ("test", test)],
                     estimators=['r_squared', 'rmse','mae', 'mare'], 
-                    additional_descriptors={'model': "CUSTODI", 'tok': "None", 'train_size': len(train)},
+                    additional_descriptors={'model': "CUSTODI", 'tok': "None", 'train_size': len(train), 'label': target_label, 'count': counter},
                     write_to=results_file,
                     init_kwargs=settings.model_params["CUSTODI"])
 
-@delayed
-def run_model_fit(target_label, model, train_size, results_file, sample='all'):
+def run_model_fit(target_label, model, train_size, dataset, sample='all'):
+    counter = 0
+    fname = lambda x: "{}_{}_{}_{}_{}.csv".format(x, target_label, train_size, model, dataset)
+    while True:
+        if os.path.isfile(os.path.join(settings.results_dir, fname(counter))):
+            counter += 1
+        else:
+            results_file = os.path.join(settings.results_dir, fname(counter))
+            break
     custodi_ps = kw_cartesian_prod(settings.model_params["CUSTODI"])
     for params in custodi_ps:
-        train, val, test = data_prep(target_label, train_size, custodi_params=params, for_custodi=False, sample=sample)
+        train, val, test = data_prep(target_label, train_size, dataset, custodi_params=params, for_custodi=False, sample=sample)
         if model == "NN":
             model_params = {}
             model_params["NN"] = add_input_shape_to_params(train.vectorized_inputs, settings.model_params["NN"])
         else:
             model_params = settings.model_params
-        additional_descrps = {'model': model, 'tok': "CUSTODI", 'train_size': len(train)}
+        additional_descrps = {'model': model, 'tok': "CUSTODI", 'train_size': len(train), 'label': target_label, 'dataset': dataset}
         additional_descrps.update(params)
         grid_estimation(settings.models_dict[model],
                         train,
@@ -92,36 +106,26 @@ def run_model_fit(target_label, model, train_size, results_file, sample='all'):
                         train_kwargs=settings.model_params[model]["train"],
                         init_kwargs=settings.model_params[model]["init"])
 
-def custodi_model_test_run():
-    counter = 1
-    c = []
-    ti = time()
-    for label in ["dipole moment [Debye]", "gap [Hartree]"]:
-        for train_size in [0.1]:
-            print("Running for {} and {}% train size (~{} samples)".format(label, round(train_size * 100), round(1.1e5 * train_size)))
-            res_file = './Results/Res{}.csv'.format(counter)
-            c.append(run_custodi_fit(label, train_size, res_file, sample=10000))
-            counter += 1
-    compute(c, scheduler='distributed')
-    tf = time()
-    print("Computation is Done ! Computation time:", tf - ti, "seconds")
-
 def main():
-    counter = 1
-    c = []
-    ti = time()
-    for label in ["dipole moment [Debye]", "gap [Hartree]"]:
-        for train_size in [0.1]:
-            print("Running for {} and {}% train size (~{} samples)".format(label, round(train_size * 100), round(1.1e5 * train_size)))
-            res_file = './Results/Res{}.csv'.format(counter)
-            c.append(run_model_fit(label, "NN", train_size, res_file, sample=10000))
-            counter += 1
-    compute(c, scheduler='distributed')
-    tf = time()
-    print("Computation is Done ! Computation time:", tf - ti, "seconds")
-
+    # Running on the rest
+    parallel_args_scan(run_custodi_fit, 
+                        [[None], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
+                        addtional_kwargs={},
+                        scheduler='distributed')
+    # Running on QM9
+    parallel_args_scan(run_model_fit, 
+                        [[None], ["KRR", "NN"], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
+                        addtional_kwargs={},
+                        scheduler='distributed')
 
 if __name__ == '__main__':
-    dask_client = Client(n_workers=2, threads_per_worker=1)
+    import argparse
+    parser = argparse.ArgumentParser(description="Parser for running files")
+    parser.add_argument("-n_workers", type=int, default=1)
+    parser.add_argument("-threads_per_worker", type=int, default=1)
+    parser.add_argument("-memory_limit", type=str, default="2GB", help="max amount of memory, string such as \'4GB\'")
+    args = parser.parse_args()
+
+    client = Client(n_workers=args.n_workers, threads_per_worker=args.threads_per_worker, memory_limit=args.memory_limit)
     main()
-    dask_client.close()
+    client.close()
