@@ -25,10 +25,20 @@ class GraphConv (Model):
         - graph_conv_layers
         - dense_layer_size"""
 
-    def __init__(self, graph_conv_layers=[64, 64], dense_layer_size=128):
+    def __init__(self):
+        # model hyperparameters are taken from https://github.com/wcjordan/schrodingerdeepchem/blob/master/examples/benchmark.py
+        hps = {
+                  'batch_size': 128,
+                  'nb_epoch': 20,
+                  'learning_rate': 0.0005,
+                  'n_filters': 128,
+                  'n_fully_connected_nodes': 256,
+                  'seed': 123
+              }
         self.model = dc.models.GraphConvModel(n_tasks=1, 
-                                                graph_conv_layers=graph_conv_layers, 
-                                                dense_layer_size=dense_layer_size, 
+                                                graph_conv_layers=[hps["n_filters"], hps["n_filters"]], 
+                                                dense_layer_size=hps["fully_connected_nodes"], 
+                                                batch_size=32
                                                 mode='regression')
 
     def train(self, x, y):
@@ -44,15 +54,14 @@ class DeepTensorNN (Model):
     Model hyperparameters are teken from https://github.com/deepchem/deepchem/blob/master/examples/qm9/qm9_DTNN.py"""
 
     def __init__(self):
-        # self.model = dc.models.DTNNModel(n_tasks=1, 
-        #                                     batch_size=50,
-        #                                     n_embedding=20,
-        #                                     n_distance=51,
-        #                                     distance_min=-1.,
-        #                                     distance_max=9.2,
-        #                                     n_hidden=15,
-        #                                     mode='regression')
-        self.model = dc.models.DTNNModel(1)
+        self.model = dc.models.DTNNModel(n_tasks=1, 
+                                            batch_size=50,
+                                            n_embedding=20,
+                                            n_distance=51,
+                                            distance_min=-1.,
+                                            distance_max=9.2,
+                                            n_hidden=15,
+                                            mode='regression')
 
     def train(self, x, y):
         dataset = dc.data.DiskDataset.from_numpy(x, y=y, ids=range(len(x)))
@@ -131,7 +140,7 @@ def run_fit(target_label, train_size, model, dataset, sample='all'):
                         estimators=['r_squared', 'rmse','mae', 'mare'],
                         additional_descriptors=additional_descrps,
                         write_to=results_file,
-                        init_kwargs=settings.model_params[model])
+                        init_kwargs={})
 
 def main():
     # Running on the rest
