@@ -13,6 +13,7 @@
 
 from dask.distributed import Client
 import numpy as np
+import pandas as pd
 import os
 
 import settings
@@ -48,16 +49,16 @@ def data_prep(target_label: str, train_size: float, dataset: str, custodi_params
     if not sample == 'all':
         data = data.sample(sample)
     if train_size <= 0.8:
-        groups = data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=0)
+        groups = data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=target_label * 10)
     else:
-        groups = data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=0)
+        groups = data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=target_label * 10)
     # training and tokenizing data using CUSTODI
     if not for_custodi:
         tok = custodi_rep(**custodi_params)
         tok.train(groups[0].vectorized_inputs, groups[0].vectorized_labels)
         for i in range(len(groups)):
             groups[i].set_tokenizer(tok)
-            groups[i].vectorized_inputs = groups[i].tokenize(groups[i].vectorized_inputs)
+            groups[i].vectorized_inputs = groups[i].tokenize('vectorized_inputs')
     return groups
 
 def run_custodi_fit(target_label, train_size, dataset, sample='all'):
@@ -88,6 +89,7 @@ def run_model_fit(target_label, model, train_size, dataset, sample='all'):
             results_file = os.path.join(settings.results_dir, fname(counter))
             break
     custodi_ps = kw_cartesian_prod(settings.model_params["CUSTODI"])
+    res = pd.DataFrame()
     for params in custodi_ps:
         train, val, test = data_prep(target_label, train_size, dataset, custodi_params=params, for_custodi=False, sample=sample)
         if model == "NN":
@@ -97,25 +99,27 @@ def run_model_fit(target_label, model, train_size, dataset, sample='all'):
             model_params = settings.model_params
         additional_descrps = {'model': model, 'tok': "CUSTODI", 'train_size': len(train), 'label': target_label, 'dataset': dataset}
         additional_descrps.update(params)
-        grid_estimation(settings.models_dict[model],
+        res = res.append(grid_estimation(settings.models_dict[model],
                         train,
                         [("val", val), ("test", test)],
                         estimators=['r_squared', 'rmse','mae', 'mare'],
                         additional_descriptors=additional_descrps,
                         write_to=results_file,
                         train_kwargs=settings.model_params[model]["train"],
-                        init_kwargs=settings.model_params[model]["init"])
+                        init_kwargs=settings.model_params[model]["init"]))
+        res.to_csv(results_file)
 
 def main():
-    # Running on the rest
-    parallel_args_scan(run_custodi_fit, 
-                        [[None], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
-                        addtional_kwargs={},
-                        scheduler='distributed')
-    # Running on QM9
+    # Running with CUSTODI model
+    #parallel_args_scan(run_custodi_fit, 
+    #                    [[1, 2, 3, 4], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
+    #                    addtional_kwargs={},
+    #                    scheduler='distributed')
+    # Running on other models with CUSTODI rep
     parallel_args_scan(run_model_fit, 
-                        [[None], ["KRR", "NN"], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
-                        addtional_kwargs={},
+                        #[[1, 2, 3, 4], ["NN", "KRR"], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]], 
+                        [[1, 2, 3, 4], ["KRR"], [0.1, 0.5, 0.8], ["delaney", "lipophilicity", "sampl"]],
+                        addtional_kwargs={}, 
                         scheduler='distributed')
 
 if __name__ == '__main__':

@@ -15,9 +15,10 @@ import settings
 from commons import *
 import sys; sys.path.append(settings.torina_parent_dir)
 from Torina.Model.utils import grid_estimation
+import numpy as np
 import os
 
-def data_prep(target_label: str, train_size: float, dataset: str, tokenizer: str, sample='all'):
+def data_prep(target_label: str, train_size: float, tokenizer: str, dataset: str, sample='all'):
     """Data preperation method for run.
     ARGS:
         - target_label (str): name of target property in qm9 dataset
@@ -33,12 +34,17 @@ def data_prep(target_label: str, train_size: float, dataset: str, tokenizer: str
         data = data.sample(sample)
     # encoding data
     data.set_tokenizer(get_tokenizer(tokenizer))
-    data.vectorized_inputs = data.tokenize('vectorized_inputs')
+    if tokenizer == 'ONEHOT':
+        data.tokenizer.set_word_tokenization_dict(data.vectorized_inputs)
+    data.vectorized_inputs = np.array(data.tokenize('vectorized_inputs'))
+    print(data.vectorized_inputs[0])
+    data.remove_entries(['empty_arrays'])
+    data.vectorized_attributes_to_nparrays()
     # splitting data
     if train_size <= 0.8:
-        groups = data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=0)
+        groups = data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=target_label * 10)
     else:
-        groups = data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=0)
+        groups = data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=target_label * 10)
     return groups
 
 def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
@@ -52,7 +58,7 @@ def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
             results_file = os.path.join(settings.results_dir, fname(counter))
             break
     # making data
-    train, val, test = data_prep(target_label, train_size, tokenizer, dataset, custodi_params=params, for_custodi=False, sample=sample)
+    train, val, test = data_prep(target_label, train_size, tokenizer, dataset, sample=sample)
     # setting up model parameters
     if model == "NN" or model == "RNN":
         model_params = {}
@@ -61,7 +67,6 @@ def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
         model_params = settings.model_params
     # setting additional descriptors
     additional_descrps = {'model': model, 'tok': tokenizer, 'train_size': len(train), 'label': target_label, 'dataset': dataset, 'count': counter}
-    additional_descrps.update(params)
     # running computation
     grid_estimation(settings.models_dict[model],
                     train,
@@ -74,18 +79,19 @@ def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
 
 def main():
     # Running non-RNN models with some reps
-    parallel_args_scan(run_fit, 
-                        [[None], ["NN", "KRR"], [0.1, 0.5, 0.8], ["ECFP4"], ["delaney", "lipophilicity", "sampl"]], 
-                        addtional_kwargs={},
-                        scheduler='distributed')
+    #parallel_args_scan(run_fit, 
+    #                    [[1, 2, 3, 4], ["NN", "KRR"], [0.1, 0.5, 0.8], ["ECFP4"], ["delaney", "lipophilicity", "sampl"]], 
+    #                    addtional_kwargs={},
+    #                    scheduler='distributed')
     # Running RNN models
     parallel_args_scan(run_fit, 
-                    [[None], ["RNN"], [0.1, 0.5, 0.8], ["ONEHOT"], ["delaney", "lipophilicity", "sampl"]], 
+                    [[1, 2, 3, 4], ["RNN"], [0.1, 0.5, 0.8], ["ONEHOT"], ["delaney", "lipophilicity", "sampl"]], 
                     addtional_kwargs={},
                     scheduler='distributed')
 
 if __name__ == '__main__':
     import argparse
+    from dask.distributed import Client
     parser = argparse.ArgumentParser(description="Parser for running files")
     parser.add_argument("-n_workers", type=int, default=1)
     parser.add_argument("-threads_per_worker", type=int, default=1)

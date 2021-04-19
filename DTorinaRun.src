@@ -1,0 +1,9 @@
+# Running models and reps as in original paper
+# set up the proper python env
+conda activate DTorina
+cd /home/azureuser/CusotodiPaper
+# settings: a "local cluster" with 12GB of RAM and 4 workers
+# set log file
+touch ./DTorinaRun.out
+# run with CUSTODI model and CUSTODI rep
+python DeepChemRun.py -n_workers 4 -memory_limit "20GB" > ./DTorinaRun.out

@@ -1,0 +1,13 @@
+# Running models and reps as in original paper
+# set up the proper python env
+cd /home/azureuser/CusotodiPaper
+# settings: a "local cluster" with 12GB of RAM and 4 workers
+# set log files
+touch ./CustodiRun.out
+touch ./RepRun.out
+# run with CUSTODI model and CUSTODI rep
+echo "*********************************** RUNNING RNN ***********************************"
+python RepRun.py -n_workers 2 -threads_per_worker 4 -memory_limit "32GB" > ./RepRun.out
+#echo "*********************************** RUNNING CUSTODI ***********************************"
+#python CustodiRun.py -n_workers 8 -memory_limit "32GB" > ./CustodiRun.out
+  

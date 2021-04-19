@@ -165,7 +165,8 @@ class CustomRNN (KerasNN):
         _model.add(tf.keras.layers.Input(input_shape))
         # fixing input shapes for some tokenizations   
         if len(input_shape) < 2:
-            _model.add(tf.keras.layers.Reshape(input_shape + (1, )))   
+            _model.add(tf.keras.layers.Reshape(input_shape + (1, )))
+        print(input_shape)
         _model.add(tf.keras.layers.LSTM(50, activation='tanh'))
         _model.add(tf.keras.layers.Dropout(dropout_rate))
         _model.add(tf.keras.layers.Dense(50, activation='tanh'))
@@ -249,16 +250,16 @@ def ecfp4_tokenizer():
     # define the tokenization function
     def f(x):
         mol = BaseMol()
-        mol.from_str(''.join(smiles))
-        return calculate_ecfp4(mol, n_bits=1024)
+        mol.from_str(''.join(x))
+        return calculate_ecfp4(mol)
     # return function tokenizer
     return FunctionTok(f)
 
 def get_tokenizer(name):
     from Torina.Data.Tokenizer.OneHot import OneHot
     d = {
-            "ONEHOT": OneHot(),
-            "CM": cm_tokenizer(),
-            "ECFP4": ecfp4_tokenizer()
+            "ONEHOT": OneHot,
+            "CM": cm_tokenizer,
+            "ECFP4": ecfp4_tokenizer
         }
-    return d[name]
+    return d[name]()

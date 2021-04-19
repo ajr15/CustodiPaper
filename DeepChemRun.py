@@ -37,8 +37,8 @@ class GraphConv (Model):
               }
         self.model = dc.models.GraphConvModel(n_tasks=1, 
                                                 graph_conv_layers=[hps["n_filters"], hps["n_filters"]], 
-                                                dense_layer_size=hps["fully_connected_nodes"], 
-                                                batch_size=32
+                                                dense_layer_size=hps["n_fully_connected_nodes"], 
+                                                batch_size=32,
                                                 mode='regression')
 
     def train(self, x, y):
@@ -113,9 +113,9 @@ def data_prep(target_label, train_size, model, dataset, sample='all'):
         data.vectorized_inputs = featurizer.featurize(mols)
 
     if train_size <= 0.8:
-        return data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=0)
+        return data.split_to_groups([train_size, 0.1], add_fill_group=True, random_seed=target_label * 10)
     else:
-        return data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=0)
+        return data.split_to_groups([train_size, 0.05], add_fill_group=True, random_seed=target_label * 10)
 
 def run_fit(target_label, train_size, model, dataset, sample='all'):
     counter = 0
@@ -145,14 +145,14 @@ def run_fit(target_label, train_size, model, dataset, sample='all'):
 def main():
     # Running on the rest
     parallel_args_scan(run_fit, 
-                        [[1], [0.1, 0.5, 0.8], ['DTNN', "GC"], ["delaney", "lipophilicity", "sampl"]], 
+                        [[1, 2, 3, 4], [0.1, 0.5, 0.8], ["GC"], ["delaney", "lipophilicity", "sampl"]], 
                         addtional_kwargs={},
                         scheduler='distributed')
     # Running on QM9
-    parallel_args_scan(run_fit, 
-                        [settings.qm9_labels, [0.001, 0.01, 0.1], ['DTNN', "GC"], ["qm9"]], 
-                        addtional_kwargs={},
-                        scheduler='distributed')
+    #parallel_args_scan(run_fit, 
+    #                    [settings.qm9_labels, [0.001, 0.01, 0.1], ['DTNN', "GC"], ["qm9"]], 
+    #                    addtional_kwargs={},
+    #                    scheduler='distributed')
 
 if __name__ == '__main__':
     import argparse
