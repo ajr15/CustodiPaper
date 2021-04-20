@@ -5,8 +5,8 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 #   Comp. SETTINGS
 # ===================
 
-torina_parent_dir = '/home/azureuser/'
-results_dir = '/mnt/katarzyna1/custodi_paper/new_results_170402021'
+torina_parent_dir = '/home/shachar/Documents'
+results_dir = '/home/shachar/Documents/CustodiPaper/results'
 
 # =====================
 #   Database SETTINGS
@@ -39,15 +39,15 @@ qm9_labels = [  # "SMILES",
 qm9_train_sizes = [0.001, 0.01, 0.1, 0.9] # [0.1%, 1%, 10%, 90%]
 
 # DELANEY
-delaney_csv_file = '/home/azureuser/CustodiPaper/DataFiles/DELANEY.csv'
+delaney_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/DELANEY.csv'
 delaney_train_sizes = [] #$ TODO: set values !
 
 # Lipophylicity
-lipophilicity_csv_file = '/home/azureuser/CustodiPaper/DataFiles/Lipophilicity.csv'
+lipophilicity_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/Lipophilicity.csv'
 lipophilicity_train_sizes = [] #$ TODO: set values !
 
 # SAMPL
-sampl_csv_file = '/home/azureuser/CustodiPaper/DataFiles/SAMPL.csv'
+sampl_csv_file = '/home/shachar/Documents/CustodiPaper/DataFiles/SAMPL.csv'
 sampl_train_sizes = [] #$ TODO: set values !
 
 # ====================
@@ -73,10 +73,10 @@ model_params = {
                                     'dropout_rate': [0, 0.1]},
                             "train": {'epochs': 120,
                                         'batch_size': 32}},
-                "RNN":     {"init": {'lr': [0.01, 0.1], 
+                "RNN":     {"init": {'lr': [0.001, 0.01], 
                                     'dropout_rate': [0, 0.1]},
-                            "train": {'epochs': 120,
-                                        'batch_size': 32}},
+                            "train":  {'epochs': 500,
+                                        'batch_size': [128, 256]}},
                 "KRR":     {"init": {'alpha': [0.01],  
                                       #'alpha': [0.01, 0.1],
                                         'kernel': ['rbf']},

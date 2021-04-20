@@ -37,7 +37,6 @@ def data_prep(target_label: str, train_size: float, tokenizer: str, dataset: str
     if tokenizer == 'ONEHOT':
         data.tokenizer.set_word_tokenization_dict(data.vectorized_inputs)
     data.vectorized_inputs = np.array(data.tokenize('vectorized_inputs'))
-    print(data.vectorized_inputs[0])
     data.remove_entries(['empty_arrays'])
     data.vectorized_attributes_to_nparrays()
     # splitting data
@@ -59,6 +58,7 @@ def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
             break
     # making data
     train, val, test = data_prep(target_label, train_size, tokenizer, dataset, sample=sample)
+    print("NUMBER OF TRAIN SAMPLES:", len(train.vectorized_inputs))
     # setting up model parameters
     if model == "NN" or model == "RNN":
         model_params = {}
@@ -78,6 +78,12 @@ def run_fit(target_label, model, train_size, tokenizer, dataset, sample='all'):
                     init_kwargs=settings.model_params[model]["init"])
 
 def main():
+    parallel_args_scan(run_fit, 
+                        [[1], ["RNN"], [0.05], ["ONEHOT"], ["lipophilicity"]], 
+                        addtional_kwargs={},
+                        scheduler='synchronous')
+        
+def main1():
     # Running non-RNN models with some reps
     #parallel_args_scan(run_fit, 
     #                    [[1, 2, 3, 4], ["NN", "KRR"], [0.1, 0.5, 0.8], ["ECFP4"], ["delaney", "lipophilicity", "sampl"]], 

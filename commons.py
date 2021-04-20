@@ -153,7 +153,7 @@ class CustomNN (KerasNN):
         model.add(tf.keras.layers.Dense(1, activation='linear'))
         super().__init__(model, tf.keras.optimizers.Adam(lr=lr), tf.keras.losses.MSE)
 
-class CustomRNN (KerasNN):
+class QM9CustomRNN (KerasNN):
     '''Custom KerasNN wrapper to be easily used in grid_estimate method on RNNs. Provides architectre, optimizer and loss.
     ARGS:
         - input_shape (tuple): input shape of network
@@ -166,12 +166,34 @@ class CustomRNN (KerasNN):
         # fixing input shapes for some tokenizations   
         if len(input_shape) < 2:
             _model.add(tf.keras.layers.Reshape(input_shape + (1, )))
-        print(input_shape)
         _model.add(tf.keras.layers.LSTM(50, activation='tanh'))
         _model.add(tf.keras.layers.Dropout(dropout_rate))
         _model.add(tf.keras.layers.Dense(50, activation='tanh'))
         _model.add(tf.keras.layers.Dense(1, activation='linear'))
         super().__init__(_model, tf.keras.optimizers.Adam(lr=lr), tf.keras.losses.MSE)
+
+class CustomRNN (KerasNN):
+    '''Custom KerasNN wrapper to be easily used in grid_estimate method on RNNs. Provides architectre, optimizer and loss.
+    ARGS:
+        - input_shape (tuple): input shape of network
+        - lr (float): learning rate
+        - dropout_rate (float): dropout rate (to prevent overfit)'''
+
+    def __init__(self, input_shape, lr, dropout_rate):
+        _model = tf.keras.models.Sequential()
+        _model.add(tf.keras.layers.Input(input_shape))
+        # fixing input shapes for some tokenizations   
+        _model.add(tf.keras.layers.LSTM(50, activation='tanh'))
+        _model.add(tf.keras.layers.Dropout(dropout_rate))
+        # _model.add(tf.keras.layers.Flatten())
+        _model.add(tf.keras.layers.Dense(50, activation='tanh'))
+        _model.add(tf.keras.layers.Dense(1, activation='linear'))
+        super().__init__(_model, tf.keras.optimizers.Adam(lr=lr), tf.keras.losses.MSE)
+        # self.model.summary()
+        # self.model = _model
+        # self.model.compile(tf.keras.optimizers.Adam(lr=lr), tf.keras.losses.MSE)
+        # self.trained = False
+        # sys.exit()
 
 # ===========================================
 #         Dask Parallelizatoin Utils
